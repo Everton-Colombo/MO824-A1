@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Set
 
 def read_max_sc_qbf_instance(filename: str) -> Tuple[int, List[List[int]], List[List[float]]]:
     """
@@ -13,7 +13,7 @@ def read_max_sc_qbf_instance(filename: str) -> Tuple[int, List[List[int]], List[
     -------
     n : int
         Number of variables/subsets.
-    subsets : List[List[int]]
+    subsets : List[Set[int]]
         List of subsets; each subset is a list of covered elements (1-based).
     A : List[List[float]]
         Full n x n coefficient matrix.
@@ -28,10 +28,10 @@ def read_max_sc_qbf_instance(filename: str) -> Tuple[int, List[List[int]], List[
     subset_sizes: List[int] = list(map(int, lines[1].split()))
 
     # Read subsets
-    subsets: List[List[int]] = []
+    subsets: List[Set[int]] = []
     idx = 2
     for size in subset_sizes:
-        elements = list(map(int, lines[idx].split()))
+        elements = set(map(int, lines[idx].split()))
         if len(elements) != size:
             raise ValueError(f"Expected {size} elements in subset, got {len(elements)}.")
         subsets.append(elements)
