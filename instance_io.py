@@ -19,7 +19,7 @@ def read_max_sc_qbf_instance(filename: str) -> Tuple[int, List[List[int]], List[
         Full n x n coefficient matrix.
     """
     with open(filename, 'r', encoding='utf-8') as f:
-        lines = [line.strip() for line in f if line.strip()]
+        lines = [line.strip() for line in f]
 
     # Read n
     n: int = int(lines[0])

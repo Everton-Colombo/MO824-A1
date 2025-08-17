@@ -28,7 +28,7 @@ def create_instance(filename_suffix):
     # pré-definidos, conforme solicitado na atividade.
     n = random.choice([25, 50, 100, 200, 400])
     
-    base_dir = os.path.join(".", "data", "instances", "instances1")
+    base_dir = os.path.join(".", "data", "instances", "gen1")
     os.makedirs(base_dir, exist_ok=True)
 
     filename = os.path.join(base_dir, f"instance{filename_suffix}.txt")
