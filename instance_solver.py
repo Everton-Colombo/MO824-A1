@@ -2,7 +2,7 @@ import pyomo
 from pyomo.opt import SolverFactory
 import pyomo.environ as pyo
 from pyomo.environ import ConcreteModel, Var, RangeSet
-
+import logging
 from typing import Tuple, List, Dict
 
 def create_model_from_instance(qbf_instance: Tuple[int, List[List[int]], List[List[float]]]) -> pyo.Model:
@@ -47,7 +47,7 @@ def create_model_from_instance(qbf_instance: Tuple[int, List[List[int]], List[Li
         
     return model
 
-def solve_qbf_model(model: pyo.Model, time_limit_secs: int=10*60, tee=True) -> Dict:
+def solve_qbf_model(model: pyo.Model, time_limit_secs: int=10*60, tee=False, logfile=None) -> Dict:
     opt = SolverFactory('gurobi_persistent') # Model persists in memory after solve, intead of being discarded. Allows for accessing properties after solve.
     opt.set_instance(model)
     model_results = opt.solve(
@@ -80,6 +80,32 @@ def solve_qbf_model(model: pyo.Model, time_limit_secs: int=10*60, tee=True) -> D
     
     return output_results
 
+# Pra fazer logging
+def log_results(logger: logging.Logger, results_dict: Dict, inst: Tuple, instance_name: str):
+    """Logs a summary of the results using a logger object."""
+    n, sets, A = inst
+    vars_ = results_dict.get("variables", [])
+    obj = results_dict.get("objective")
+    rel_gap = results_dict.get("relative_gap")
+    abs_gap = results_dict.get("absolute_gap")
+    run = results_dict.get("solver_runtime_sec")
+
+    chosen = [i + 1 for i, v in enumerate(vars_) if v >= 0.5]
+    universe_all = set.union(*sets) if sets else set()
+    covered = set().union(*(sets[i - 1] for i in chosen)) if chosen else set()
+    coverage_pct = (len(covered) / len(universe_all) * 100) if universe_all else 0.0
+
+    logger.info(f"--- Results for instance: {instance_name} ---")
+    logger.info(f"- Objective value: {obj}")
+    if rel_gap is not None:
+        logger.info(f"- Gap: relative={rel_gap:.4%}, absolute={abs_gap}")
+    if run is not None:
+        logger.info(f"- Solver Runtime (sec): {run:.2f}")
+    logger.info(f"- Selected sets ({len(chosen)}/{n}): {chosen}")
+    logger.info(f"- Coverage: {len(covered)}/{len(universe_all)} elements ({coverage_pct:.1f}%)")
+    logger.info("-" * 50 + "\n")
+
+
 def present_results(results_dict, inst):
     n, sets, A = inst
     vars_ = results_dict.get("variables", [])
@@ -105,3 +131,31 @@ def present_results(results_dict, inst):
     for i, v in enumerate(vars_, start=1):
         print(f"  x[{i}] = {v:.0f}")
     
+# Cria modelo sem restrições (QBF tradicional)
+def create_qbf_model_from_instance(qbf_instance: Tuple[int, List[List[int]], List[List[float]]]) -> pyo.Model:
+    n = qbf_instance[0]
+    A = qbf_instance[2]
+    
+    model = pyo.ConcreteModel()
+
+    ## Vars:
+    model.I = RangeSet(n)
+
+    
+    model.x = Var(model.I, domain=pyo.Binary)
+    
+    model.IJs = pyo.Set(dimen=2, initialize=[(i, j) for i in model.I for j in model.I if i <= j])
+
+    ## Objective:
+    def objective_rule(model):
+        return sum(A[i-1][j-1] * model.x[i]*model.x[j] for (i, j) in model.IJs)
+
+    model.obj = pyo.Objective(rule=objective_rule, sense=pyo.maximize)
+
+    return model
+
+
+# Uso somente pra somar os coeficientes das instâncias de gen3
+def sum_coeff(qbf_instance: Tuple[int, List[List[int]], List[List[float]]]) -> float:
+    A = qbf_instance[2]
+    return sum(element for row in A for element in row)
